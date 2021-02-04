@@ -5,10 +5,8 @@ require 'bundler/inline'
 
 gemfile do
   source 'https://rubygems.org'
-  gem 'gruff', '~> 0.12.1'
+  # gem 'gruff', '~> 0.12.1'
 end
-
-require 'gruff'
 
 def hex(hex_value)
   hex_value.to_i(16)
@@ -64,25 +62,37 @@ categories = {
   'RAM' => { size: 0x2000 - 0x200, segments: ['OAM', 'FAMITONE'] }
 }
 
-graph = Gruff::StackedBar.new
-graph.title = 'Memory usage by category'
-graph.labels = categories.keys.map.with_index { |(k, _v), i| [i, k] }.to_h
+segment_usage = {}
 
-free = Array.new(categories.size) { 1.0 }
-
-categories.each.with_index do |(_cat_name, cat_data), cat_index|
+puts 'Usage per category:'
+categories.each do |cat_name, cat_data|
+  puts "#{cat_name}:"
+  free = cat_data[:size]
   cat_data[:segments].each do |seg_name|
-    counts = Array.new(categories.size) { 0.0 }
-    counts[cat_index] = module_data.flat_map { |mod| mod[:segments] }
-                                   .select { |segment| segment[:segment] == seg_name }
-                                   .map { |segment| segment[:size] }
-                                   .sum * 1.0 / cat_data[:size]
-    graph.data seg_name, counts
-    puts "#{seg_name}: #{counts}"
-    free[cat_index] -= counts[cat_index]
-    free[cat_index] = 0.0 if free[cat_index] < 0.0
+    usage = segment_usage[seg_name] = module_data.flat_map { |mod| mod[:segments] }
+                                                 .select { |segment| segment[:segment] == seg_name }
+                                                 .map { |segment| segment[:size] }
+                                                 .sum
+    puts "  #{seg_name}: #{usage}"
+    free -= usage
+  end
+  puts "  Free: #{free}"
+end
+
+puts 'Usage per segment:'
+
+segment_usage.each do |seg_name, seg_size|
+  puts "#{seg_name} (#{seg_size} bytes):"
+  module_data.map do |mod|
+    [
+      mod[:module],
+      mod[:segments].find { |seg| seg[:segment] == seg_name }
+                    .then { |seg| seg ? seg[:size] : nil }
+    ]
+  end.reject { |m, s| s.nil? }
+     .sort_by { |m, s| s }
+     .reverse
+     .each do |m, s|
+    puts "  #{m}: #{s} bytes"
   end
 end
-graph.data 'Free', free
-puts "Free: #{free}"
-graph.write('ld65-map.png')
