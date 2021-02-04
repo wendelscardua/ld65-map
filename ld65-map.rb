@@ -74,25 +74,21 @@ categories.each do |cat_name, cat_data|
                                                  .map { |segment| segment[:size] }
                                                  .sum
     puts "  #{seg_name}: #{usage}"
+
+    module_data.map do |mod|
+      [
+        mod[:module],
+        mod[:segments].find { |seg| seg[:segment] == seg_name }
+                      .then { |seg| seg ? seg[:size] : nil }
+      ]
+    end.reject { |m, s| s.nil? }
+       .sort_by { |m, s| s }
+       .reverse
+       .each do |m, s|
+      puts "    #{m}: #{s} bytes"
+    end
+
     free -= usage
   end
   puts "  Free: #{free}"
-end
-
-puts 'Usage per segment:'
-
-segment_usage.each do |seg_name, seg_size|
-  puts "#{seg_name} (#{seg_size} bytes):"
-  module_data.map do |mod|
-    [
-      mod[:module],
-      mod[:segments].find { |seg| seg[:segment] == seg_name }
-                    .then { |seg| seg ? seg[:size] : nil }
-    ]
-  end.reject { |m, s| s.nil? }
-     .sort_by { |m, s| s }
-     .reverse
-     .each do |m, s|
-    puts "  #{m}: #{s} bytes"
-  end
 end
